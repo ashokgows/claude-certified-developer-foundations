@@ -53,6 +53,53 @@ _Lesson map: 01 Orientation · 02 How LLMs Behave · 03 Models & Reasoning · 04
 - D. A larger context window.
 > **Confirmed correct: C.** Explanation shown: *"Batch trades latency for lower per-token cost and avoids the rate limits a synchronous loop hits."*
 
+### Exercise: "Predict the behavior" — 4 scenarios (all confirmed correct)
+
+**Each scenario names the ONE lever that controls the outcome. Memorize the lever per scenario:**
+
+**S1 — Lever = sampling (temperature).** Classifier at temp 0 vs. high temp across repeated runs.
+- ✅ **A:** Low temp concentrates probability on the most likely tokens → repeated runs return the same label far more consistently (**never guaranteed-deterministic, even at temp 0**). High temp spreads the distribution so wording *and even the chosen label* can vary. For a classifier, want low-temperature/repeatable.
+- Note: on newest models, sampling params are omitted entirely; non-default values return an error; repeatability is managed through **prompt design**.
+
+**S2 — Lever = prompting mode.** Zero-shot output keeps coming back in the wrong structure; switch to multi-shot.
+- ✅ **B:** Adding 2–3 correct input→output examples shows the model the exact structure to match (fixes what instruction text didn't). Cost = extra tokens per call → add the **fewest** examples that make output reliable.
+- Key myth-busters: examples are **not training** (don't change the model, not permanent) and do **not** lower cost — they sit in the prompt and add tokens every call.
+
+**S3 — Lever = request shape.** Pipeline must process 50,000 documents overnight, no user waiting.
+- ✅ **C:** **Message Batches API** — submit in a batch, poll for completion, accept longer latency for lower per-token cost. A sync loop hits rate limits at this volume; streaming buys nothing when no user is watching. → *Match request shape to whether a user is waiting.*
+
+**S4 — Lever = context window (a fixed token budget).** Long multi-turn agent session whose window keeps filling.
+- ✅ **B:** The context window is a **fixed token budget**; as history + tool results accumulate it fills. Two distinct failures:
+  - An input **already oversized** → rejected with an **error before generation**.
+  - A request that fits on input but **hits the ceiling mid-generation** → comes back **truncated** with stop reason `model_context_window_exceeded`.
+  - The model does **NOT** silently drop the oldest turns. Fix = the app must **trim or summarize history**. Symptom: passes in testing, fails once inputs/turns grow.
+
+#### Full verbatim Q&A (for self-testing)
+
+**Scenario 1.** Consider a classification task run at temperature 0 versus the same task run at a high temperature. Predict how the outputs differ across repeated runs.
+- ✅ **A.** At a low temperature, the model concentrates probability on the most likely tokens, so repeated runs return the same label far more consistently, though never with guaranteed determinism, even at temperature 0. At a high temperature, the distribution spreads out, so wording and even the chosen label can vary. For a classifier you want the low-temperature, repeatable behavior.
+- B. Both configurations return identical output every run, because temperature only affects response length, not which tokens are chosen.
+- C. The high-temperature run is more accurate, because spreading the distribution lets the model consider more of the correct answers.
+- D. Temperature has no effect on a classification task, because classification always returns a fixed label regardless of sampling.
+
+**Scenario 2.** Consider a task that keeps returning output in the wrong structure under a zero-shot prompt. Predict what changes if you switch to multi-shot.
+- A. Switching to multi-shot retrains the model on the new structure, so the change is permanent across every future call once the examples are sent.
+- ✅ **B.** Adding two or three correct input-output examples shows the model the exact structure to match, which usually fixes a structure problem that more instruction text did not. The cost is extra tokens on every call, so add the fewest examples that make the output reliable.
+- C. Multi-shot will not help a structure problem; only raising the temperature changes the shape of the output.
+- D. Multi-shot lowers the token cost per call, because examples let the model produce shorter responses.
+
+**Scenario 3.** Consider a pipeline that must process 50,000 documents overnight with no user waiting. Predict which request shape fits and why.
+- A. A synchronous loop fits best, because calling the API once per document is the simplest pattern and avoids the overhead of submitting a batch.
+- B. Streaming fits best, because sending the response in pieces lets the pipeline start processing each document sooner.
+- ✅ **C.** The batch pattern fits: submit the requests in a batch and poll for completion, accepting longer latency for a lower per-token cost. A synchronous loop would hit rate limits and tie up the application, and streaming buys nothing because no user is watching.
+- D. A larger context window fits best, because fitting all 50,000 documents into one request avoids making repeated calls.
+
+**Scenario 4.** Consider a long multi-turn agent session whose context window keeps filling. Predict the symptoms and name the budget at fault.
+- A. The model silently drops the oldest turns to make room, so the session continues but quietly loses early context without any error.
+- ✅ **B.** The context window is a fixed token budget; as history and tool results accumulate it fills. An input that is already oversized is rejected with an error before generation, while a request that fits on input but reaches the ceiling mid-generation comes back with truncated output and a `model_context_window_exceeded` stop reason. The symptom is a session that ran fine in testing failing once inputs grow, which is why the application must trim or summarize history.
+- C. The symptom is slower sampling, and the budget at fault is the temperature setting, which must be lowered as the session grows.
+- D. There is no fixed budget; the window expands automatically to hold whatever history accumulates, so a long session never fails for this reason.
+
 ---
 
 ## Module 2 — Production-Grade Prompting, Agents & Tool Use
