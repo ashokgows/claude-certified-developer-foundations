@@ -104,6 +104,30 @@ _Lesson map: 01 Orientation · 02 How LLMs Behave · 03 Models & Reasoning · 04
 
 ## Module 2 — Production-Grade Prompting, Agents & Tool Use
 
+### Pre-read (concepts to watch for)
+
+**A. Production prompting & system prompts**
+- **System prompt** = persistent role/instructions framing every turn (who Claude is, rules, format). Separate from the user message.
+- **Structure that works:** role → task → context/data → rules → output format → (examples if needed). Put long documents **before** the question; use **XML tags** (`<document>`, `<instructions>`) to delimit sections — Claude respects them.
+- **Be explicit & positive** — say what *to* do. Ambiguity is the #1 cause of bad output.
+- **Prefill** the assistant turn to force format (start with `{` for JSON, `[` for a list).
+- **Chain-of-thought** — ask it to reason step-by-step (or a `<thinking>` section) for complex tasks; strip from final answer if user shouldn't see it.
+
+**B. Tool use (function calling)**
+- **Loop:** define tools → Claude returns a `tool_use` block (JSON input) → *your code* runs the real function → you send back a `tool_result` → Claude continues. **Claude never executes anything itself** — it only asks.
+- **Tool schema** = name + **description** + `input_schema` (JSON Schema). The **description is the most important part** — how Claude knows *when/how* to use it. Be verbose.
+- **`tool_choice`:** `auto` (model decides), `any` (must call some tool), `tool` (force a specific one), `none`.
+- **Parallel tool use** — Claude can request multiple tools in one turn. On failure, return `tool_result` with `is_error: true` so it can recover.
+
+**C. Agents & context management**
+- **Agent** = a loop where Claude uses tools repeatedly, observing results and deciding next steps until done (vs. single request/response).
+- **Context management** (recurring exam theme) — finite token budget. Strategies: trim/summarize old turns, keep tool results lean, retrieve only what's relevant, track token usage. Ties back to M1's context-window lesson.
+- **Extended thinking in agents** — use for planning multi-step tasks; interleave thinking between tool calls for harder problems.
+
+> **Exam instinct:** most M2 questions are "given this situation, what's the right prompting/tool/agent design choice?" — same judgment pattern as M1's levers.
+
+### Notes from videos
+
 _(add points here)_
 
 ---
